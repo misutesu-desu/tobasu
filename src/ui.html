@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tobasu</title>
+<style>
+  :root { --bg:#14151a; --panel:#1d1f26; --panel2:#191b21; --line:#2c2f39; --text:#e6e7eb;
+          --dim:#9095a3; --acc:#7c8cff; --ok:#4cc38a; --warn:#e5b454; --err:#ef6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:3; background:var(--panel);
+           border-bottom:1px solid var(--line); padding:10px 18px;
+           display:flex; gap:10px; align-items:center; }
+  h1 { font-size:17px; margin:0; }
+  .grow { flex:1; }
+  input[type=text], input[type=number], select { background:var(--bg); color:var(--text);
+         border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; }
+  button { background:#2a2e3a; color:var(--text); border:1px solid var(--line); border-radius:6px;
+           padding:6px 12px; font:inherit; cursor:pointer; white-space:nowrap; }
+  button:hover { border-color:var(--acc); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.pri { background:var(--acc); border-color:var(--acc); color:#0d0f18; font-weight:600; }
+  button.danger:hover { border-color:var(--err); color:var(--err); }
+  button.play { padding:3px 9px; }
+  .link { background:none; border:none; color:var(--acc); padding:0; cursor:pointer; }
+  .layout { display:grid; grid-template-columns:250px 1fr; min-height:calc(100vh - 53px); }
+  aside { border-right:1px solid var(--line); background:var(--panel2); padding:10px; }
+  aside .item { display:flex; gap:10px; align-items:center; padding:7px 8px; border-radius:7px; cursor:pointer; }
+  aside .item:hover, aside .item.on { background:#262934; }
+  aside img, .res img { width:36px; height:50px; object-fit:cover; border-radius:4px; flex:none; }
+  aside .t { font-weight:600; font-size:13px; line-height:1.25; }
+  main { padding:16px 22px 80px; min-width:0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:14px; margin-bottom:14px; }
+  .card.warn { border-color:var(--warn); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .msg { color:var(--dim); font-size:12px; }
+  .err { color:var(--err); } .ok { color:var(--ok); }
+  .res { display:flex; gap:12px; align-items:center; padding:8px; border-radius:7px; cursor:pointer; }
+  .res:hover { background:#262934; }
+  .season { background:var(--panel); border:1px solid var(--line); border-radius:9px; margin-bottom:14px; overflow:hidden; }
+  .season > .head { padding:9px 14px; display:flex; gap:10px; align-items:center;
+                    background:var(--panel2); border-bottom:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:6px 10px; border-top:1px solid var(--line); vertical-align:middle; }
+  tr:first-child td { border-top:none; }
+  td.c { width:34px; text-align:center; }
+  td.p { width:46px; }
+  td.tm { width:150px; white-space:nowrap; }
+  td.tm input { width:104px; padding:3px 6px; font-size:12px; }
+  td.st { width:150px; }
+  tr.nofile td { color:var(--dim); }
+  .fname { color:var(--dim); font-size:12px; word-break:break-all; }
+  .bar { height:5px; background:var(--line); border-radius:3px; margin-top:4px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--acc); transition:width .3s; }
+  .s-dışa { color:var(--ok); } .s-analiz { color:#a6b3ff; } .s-hata { color:var(--err); }
+  .s-işleniyor, .s-kuyrukta { color:var(--acc); }
+  .watch { font-size:12px; color:var(--dim); margin-top:2px; }
+  .watch .bar { width:160px; height:3px; display:inline-block; vertical-align:middle; margin:0 0 0 6px; }
+  .watch.done { color:var(--ok); }
+  tr.last td { background:#20232c; }
+  .resume { display:flex; gap:12px; align-items:center; }
+  .resume .bar { flex:1; max-width:300px; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:9px; background:#2a2e3a; color:var(--dim); }
+  .settings { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px 18px; }
+  .settings label { display:flex; gap:8px; align-items:center; }
+  .settings .wide { grid-column:1/-1; }
+  .settings .wide input { flex:1; }
+  .settings h3 { grid-column:1/-1; margin:6px 0 0; font-size:13px; color:var(--dim); font-weight:600; }
+  .hidden { display:none !important; }
+  .empty { color:var(--dim); text-align:center; padding:50px 20px; }
+  @media (max-width:800px) {
+    .layout { grid-template-columns:1fr; } aside { border-right:none; border-bottom:1px solid var(--line); }
+    td.tm { display:none; } main { padding:12px 12px 60px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tobasu</h1>
+  <span class="grow"></span>
+  <span id="busy" class="msg"></span>
+  <button id="cancelBtn" class="danger hidden" data-t="Durdur">Durdur</button>
+  <button id="addBtn" class="pri" data-t="+ Anime ekle">+ Anime ekle</button>
+  <button id="setBtn" data-t="Ayarlar">Ayarlar</button>
+</header>
+<div class="layout">
+  <aside id="lib"></aside>
+  <main>
+    <div id="err" class="err"></div>
+    <div id="mpvWarn" class="card warn hidden" data-th="mpvWarn"></div>
+
+    <section id="settingsView" class="card hidden">
+      <div class="settings">
+        <h3 data-t="Genel">Genel</h3>
+        <label>Dil / Language <select id="lang">
+          <option value="tr">Türkçe</option><option value="en">English</option></select></label>
+        <label class="wide"><span data-t="Ad şablonu">Ad şablonu</span> <input type="text" id="name_template" data-tt="{anime} {s} {b} {title} · sıfırlı: S{s:02}E{b:02}"></label>
+        <div class="wide msg" data-th="tplHelp"></div>
+        <h3 data-t="Oynatıcı">Oynatıcı</h3>
+        <label><input type="checkbox" id="auto_skip"> <span data-t="OP/ED'yi otomatik atla">OP/ED'yi otomatik atla</span></label>
+        <label data-tt="Oynatıcıda ED bitince sonraki bölüme geçer; dışa aktarırken ED'den sonrası da silinir"><input type="checkbox" id="skip_preview"> <span data-t="Bölüm sonu özetini atla (ED'den sonrası)">Bölüm sonu özetini atla (ED'den sonrası)</span></label>
+        <label class="wide"><span data-t="mpv.exe yolu">mpv.exe yolu</span> <input type="text" id="mpv_path" data-tp="boş = otomatik bul"></label>
+        <h3 data-t="Dışa aktarma">Dışa aktarma</h3>
+        <label class="wide"><span data-t="Çıktı klasörü">Çıktı klasörü</span> <input type="text" id="out_dir"></label>
+        <label><input type="checkbox" id="remove_oped"> <span data-t="OP/ED'yi sil">OP/ED'yi sil</span></label>
+        <label><span data-t="Kesim">Kesim</span> <select id="cut_mode">
+          <option value="fast" data-t="Hızlı (kodlamadan, ±1 sn)">Hızlı (kodlamadan, ±1 sn)</option>
+          <option value="exact" data-t="Tam (kare hassas, NVENC)">Tam (kare hassas, NVENC)</option></select></label>
+        <label><span data-t="Kodlayıcı">Kodlayıcı</span> <select id="encoder">
+          <option value="h264_nvenc">H.264 NVENC (CUDA)</option>
+          <option value="hevc_nvenc">HEVC NVENC (CUDA)</option>
+          <option value="libx264">H.264 CPU</option></select></label>
+        <label><span data-t="Kalite (CQ)">Kalite (CQ)</span> <input type="number" id="quality" min="10" max="40" style="width:70px"></label>
+        <label><span data-t="Dosya türü">Dosya türü</span> <select id="container">
+          <option value="auto" data-t="Otomatik (altyazı varsa MKV)">Otomatik (altyazı varsa MKV)</option>
+          <option value="mkv">MKV</option><option value="mp4">MP4</option></select></label>
+        <label><input type="checkbox" id="merge_delete_eps"> <span data-t="Tek video sonrası bölüm dosyalarını sil">Tek video sonrası bölüm dosyalarını sil</span></label>
+        <div class="wide row"><button class="pri" id="saveSet" data-t="Kaydet">Kaydet</button><span id="setMsg" class="msg"></span></div>
+      </div>
+    </section>
+
+    <section id="addView" class="hidden">
+      <div class="card">
+        <div class="row"><input type="text" id="newName" data-tp="Anime adını yaz, Enter'a bas" style="flex:1;min-width:200px">
+          <button class="pri" id="createBtn" data-t="Ekle">Ekle</button></div>
+        <div class="msg" style="margin-top:8px"><span data-t="Sezonlar klasördeki dosya adlarından otomatik bulunur.">Sezonlar klasördeki dosya adlarından otomatik bulunur.</span>
+          <button class="link" id="toggleSearch" data-t="Bölüm adlarını internetten al (isteğe bağlı, yavaş)">Bölüm adlarını internetten al (isteğe bağlı, yavaş)</button></div>
+      </div>
+      <div class="card hidden" id="searchBox">
+        <div class="row"><input type="text" id="q" data-tp="AniList'te ara" style="flex:1;min-width:200px">
+          <button id="searchBtn" data-t="Ara">Ara</button></div>
+        <div id="searchMsg" class="msg" style="margin-top:8px"></div>
+        <div id="results" style="margin-top:6px"></div>
+      </div>
+    </section>
+
+    <section id="animeView" class="hidden"></section>
+    <div id="welcome" class="empty" data-th="welcome"></div>
+  </main>
+</div>
+<script>
+// ---------------------------------------------------------------- dil
+// Anahtarlar Türkçe metnin kendisi; İngilizce karşılığı yoksa Türkçesi gösterilir
+const EN = {
+  "Durdur": "Stop", "+ Anime ekle": "+ Add anime", "Ayarlar": "Settings", "Genel": "General",
+  "Ad şablonu": "Name template", "Oynatıcı": "Player", "OP/ED'yi otomatik atla": "Skip OP/ED automatically",
+  "Bölüm sonu özetini atla (ED'den sonrası)": "Skip the preview after the ED",
+  "Oynatıcıda ED bitince sonraki bölüme geçer; dışa aktarırken ED'den sonrası da silinir":
+    "In the player, goes to the next episode when the ED ends; when exporting, everything after the ED is removed too",
+  "mpv.exe yolu": "mpv.exe path", "boş = otomatik bul": "empty = find automatically",
+  "Dışa aktarma": "Export", "Çıktı klasörü": "Output folder", "OP/ED'yi sil": "Remove OP/ED", "Kesim": "Cut",
+  "Hızlı (kodlamadan, ±1 sn)": "Fast (no re-encode, ±1 s)", "Tam (kare hassas, NVENC)": "Exact (frame accurate, NVENC)",
+  "Kodlayıcı": "Encoder", "Kalite (CQ)": "Quality (CQ)", "Dosya türü": "File type",
+  "Otomatik (altyazı varsa MKV)": "Auto (MKV if there are subtitles)",
+  "Tek video sonrası bölüm dosyalarını sil": "Delete episode files after making a single video",
+  "Kaydet": "Save", "Kaydedildi": "Saved", "Anime adını yaz, Enter'a bas": "Type the anime name, press Enter", "Ekle": "Add",
+  "Sezonlar klasördeki dosya adlarından otomatik bulunur.": "Seasons are detected from the file names in the folder.",
+  "Bölüm adlarını internetten al (isteğe bağlı, yavaş)": "Get episode titles online (optional, slow)",
+  "AniList'te ara": "Search AniList", "Ara": "Search", "{anime} {s} {b} {title} · sıfırlı: S{s:02}E{b:02}": "{anime} {s} {b} {title} · zero padded: S{s:02}E{b:02}",
+  "{n} iş sürüyor": "{n} jobs running", "Uygulamaya ulaşılamıyor.": "Cannot reach the app.",
+  "Uygulamaya ulaşılamıyor, yeniden bağlanılıyor…": "Cannot reach the app, reconnecting…",
+  "Kütüphane boş.": "Library is empty.", "{n} sezon · {f} dosya": "{n} seasons · {f} files", "bitti": "finished", "baştan": "from the start",
+  "✓ izlendi": "✓ watched", "Dosya adlarında kullanılan isim": "Name used in file names", "İsmi kaydet": "Save name",
+  "Kütüphaneden kaldır": "Remove from library", "Bölümlerin olduğu klasör": "Folder with the episodes", "Gözat…": "Browse…",
+  "Tüm sezonlar (otomatik)": "All seasons (auto)", "Sezon {n}": "Season {n}", "Eşleştir": "Match",
+  "Tüm sezonlarda tümünü seç": "Select all in every season", "{n} seçili": "{n} selected",
+  "▶ Oynat": "▶ Play", "Seçilen bölümleri oynatıcıda aç (tek bölüm seçiliyse oradan devam eder)": "Open the selected episodes in the player (with one episode selected, plays on from there)",
+  "Analiz et": "Analyze", "OP/ED'yi yeniden bul": "Find OP/ED again", "Yeniden adlandır": "Rename",
+  "Dosyaları ad şablonuna göre yeniden adlandırır (yerinde)": "Renames the files using the name template (in place)",
+  "Adları geri al": "Undo rename", "Yeniden adlandırmayı geri alır": "Undoes the rename", "Dışa aktar": "Export",
+  "OP/ED silinmiş kopyaları çıktı klasörüne yazar": "Writes copies without OP/ED to the output folder",
+  "Tek video yap": "Make single video", "OP/ED silinmiş tek video, her bölüm bir chapter": "One video without OP/ED, each episode is a chapter",
+  "Eşleşmeyi kaldır": "Unmatch", "Seçilen bölümlerin dosya eşleşmesini kaldırır": "Removes the file match of the selected episodes",
+  "<b>{a}</b> bitti, sonraki bölüm dosyası yok.": "<b>{a}</b> finished, there is no file for the next episode.",
+  "<b>{a}</b> bitti. Sıradaki: <b>{b}</b>": "<b>{a}</b> finished. Next: <b>{b}</b>",
+  "<b>{a}</b> · {p} dakikada kaldın": "<b>{a}</b> · stopped at {p}", "Kaldığın yer:": "Continue watching:",
+  "Bu bölümden oynat; yarıda kaldıysa kaldığın saniyeden açılır": "Play from this episode; resumes where you stopped",
+  "▶ Devam et": "▶ Continue", "Tek video:": "Single video:", "tümünü seç": "select all", "{a}/{b} dosya": "{a}/{b} files",
+  "Bölüm yok. Klasör eşleştirince dosyalar buraya gelir.": "No episodes. Match a folder and the files show up here.",
+  "Buradan oynat": "Play from here", "altyazı": "subtitles",
+  "Önce bölüm seç.": "Select episodes first.",
+  "{n} dosya yerinde yeniden adlandırılsın mı? (Adları geri al ile geri alınabilir)": "Rename {n} files in place? (Undo rename can revert it)",
+  "Adlandırılamayanlar:": "Could not rename:", "Sezonlar ve bölüm adları getiriliyor…": "Fetching seasons and episode titles…",
+  "Anime kütüphaneden kaldırılsın mı? Dosyalara dokunulmaz.": "Remove the anime from the library? Files are not touched.",
+  "Klasör seçme penceresi açıldı (görev çubuğunda olabilir)…": "The folder picker is open (it may be in the taskbar)…",
+  "Önce klasör seç.": "Choose a folder first.", "{n} dosya eşleşti, OP/ED analizi başladı.": "{n} files matched, OP/ED analysis started.",
+  "Eşleşmeyen:": "Not matched:", "Aranıyor…": "Searching…", "Seçmek için tıkla.": "Click to choose.", "Sonuç yok.": "No results.",
+  "{n} bölüm": "{n} episodes", "elle": "manual", "ses": "audio",
+  "hazır": "ready", "analiz edildi": "analyzed", "kuyrukta": "queued", "işleniyor": "processing",
+  "dışa aktarıldı": "exported", "hata": "error", "dosya yok": "no file", "iptal": "cancelled",
+  mpvWarn: "mpv was not found. <b>▶ Play</b> needs mpv; you can set the <code>mpv.exe</code> path in Settings.",
+  tplHelp: "Examples: <code>{anime} S{s}E{b}</code> → Frieren S1E1 · <code>{anime} - S{s:02}E{b:02} - {title}</code> → Frieren - S01E01 - Episode title",
+  welcome: "Press <b>+ Add anime</b> and type the anime name to start.<br>Then point to the episode folder: files get matched, OP/ED is found automatically, and you watch with <b>▶</b>.",
+};
+const TR_HTML = {
+  mpvWarn: "Oynatıcı (mpv) bulunamadı. <b>▶ Oynat</b> için mpv kurulu olmalı; Ayarlar'dan <code>mpv.exe</code> yolunu girebilirsin.",
+  tplHelp: "Örnekler: <code>{anime} S{s}B{b}</code> → Frieren S1B1 · <code>{anime} - S{s:02}E{b:02} - {title}</code> → Frieren - S01E01 - Bölüm adı",
+  welcome: "Başlamak için <b>+ Anime ekle</b>'ye bas ve anime adını yaz.<br>Sonra bölümlerin klasörünü göster: dosyalar eşleşir, OP/ED otomatik bulunur, <b>▶</b> ile izlersin.",
+};
+const sysLang = () => ((navigator.language || "").toLowerCase().startsWith("tr") ? "tr" : "en");
+const lang = () => state.settings.lang || sysLang();
+function t(s, v) {
+  let r = (lang() === "en" && EN[s]) || s;
+  if (v) r = r.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  return r;
+}
+let appliedLang = null;
+function applyStatic() {
+  if (appliedLang === lang()) return;
+  appliedLang = lang();
+  document.documentElement.lang = appliedLang;
+  for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
+  for (const el of document.querySelectorAll("[data-th]")) {
+    const k = el.dataset.th;
+    el.innerHTML = appliedLang === "en" ? EN[k] : TR_HTML[k];
+  }
+  for (const el of document.querySelectorAll("[data-tp]")) el.placeholder = t(el.dataset.tp);
+  for (const el of document.querySelectorAll("[data-tt]")) el.title = t(el.dataset.tt);
+}
+
+// ---------------------------------------------------------------- durum
+const H = { "Content-Type": "application/json", "X-Tobasu": "1" };
+let state = { settings: {}, animes: {}, eps: [], merges: {}, mpv: true };
+let current = localGet("anime") || null;
+let view = "welcome";
+const sel = new Set();
+let typing = false;
+let langSent = false;
+
+function localGet(k) { try { return localStorage.getItem("tb_" + k); } catch (e) { return null; } }
+function localSet(k, v) { try { localStorage.setItem("tb_" + k, v); } catch (e) { /* yoksay */ } }
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = t => { t = Math.round(t); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+const rng = s => s ? fmt(s.start) + "-" + fmt(s.end) : "";
+const epCode = e => "S" + e.season + (lang() === "en" ? "E" : "B") + e.episode;
+// Animenin en son izlenen bölümü (oynatıcının yazdığı zamana göre)
+const lastWatched = aid => state.eps.filter(e => e.anime === aid && e.watch && e.watch.t)
+  .sort((x, y) => y.watch.t - x.watch.t)[0] || null;
+// Kaldığın yer: son izlenen bitmişse sıradaki dosyalı bölüm
+function resumePoint(aid) {
+  const l = lastWatched(aid);
+  if (!l) return null;
+  if (!l.watch.done) return { ep: l, pos: l.watch.pos, dur: l.watch.dur };
+  const next = animeEps(aid).filter(e => e.src && (e.season > l.season || (e.season === l.season && e.episode > l.episode)))
+    .sort((x, y) => x.season - y.season || x.episode - y.episode)[0];
+  return next ? { ep: next, pos: 0, dur: 0, after: l } : { ep: l, pos: l.watch.dur, dur: l.watch.dur, finished: true };
+}
+function watchLine(w) {
+  if (!w) return "";
+  if (w.done) return `<div class="watch done">${t("✓ izlendi")}</div>`;
+  const pct = w.dur ? Math.min(100, Math.round(w.pos / w.dur * 100)) : 0;
+  return `<div class="watch">⏸ ${fmt(w.pos)}${w.dur ? " / " + fmt(w.dur) : ""}<span class="bar"><i style="width:${pct}%"></i></span></div>`;
+}
+const BUSY = ["işleniyor", "kuyrukta"];
+
+async function api(url, body) {
+  const r = await fetch(url, body === undefined ? {} : { method: "POST", headers: H, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+
+function show(v) {
+  view = v;
+  $("addView").classList.toggle("hidden", v !== "add");
+  $("animeView").classList.toggle("hidden", v !== "anime");
+  $("welcome").classList.toggle("hidden", v !== "welcome");
+  render();
+}
+function openAnime(id) { current = id; localSet("anime", id); sel.clear(); show("anime"); }
+
+function renderLib() {
+  const list = Object.values(state.animes).sort((a, b) => a.name.localeCompare(b.name, lang()));
+  $("lib").innerHTML = list.length ? list.map(a => {
+    const eps = state.eps.filter(e => e.anime === a.id);
+    const files = eps.filter(e => e.src).length;
+    const rp = resumePoint(a.id);
+    const where = !rp ? "" : rp.finished ? "✓ " + epCode(rp.ep) + " " + t("bitti")
+      : epCode(rp.ep) + (rp.pos ? " · " + fmt(rp.pos) : " · " + t("baştan"));
+    return `<div class="item ${a.id === current && view === "anime" ? "on" : ""}" data-open="${esc(a.id)}">
+      ${a.image ? `<img src="${esc(a.image)}" alt="">` : ""}
+      <div><div class="t">${esc(a.name)}</div><div class="msg">${t("{n} sezon · {f} dosya", { n: a.seasons.length, f: files })}</div>
+      ${where ? `<div class="msg" style="color:var(--acc)">▶ ${esc(where)}</div>` : ""}</div></div>`;
+  }).join("") : `<div class="msg" style="padding:8px">${t("Kütüphane boş.")}</div>`;
+}
+
+const animeEps = aid => state.eps.filter(e => e.anime === aid);
+
+function renderAnime() {
+  const a = state.animes[current];
+  if (!a) { show("welcome"); return; }
+  if (typing) return;
+  const eps = animeEps(a.id);
+  const withFile = eps.filter(e => e.src);
+  const m = state.merges[a.id];
+  const mBusy = m && BUSY.includes(m.status);
+  const allChecked = withFile.length && withFile.every(e => sel.has(e.id));
+  const selCount = withFile.filter(e => sel.has(e.id)).length;
+  let html = `<div class="card">
+    <div class="row"><input type="text" id="aname" value="${esc(a.name)}" style="flex:1;font-size:17px;font-weight:600;min-width:200px" title="${t("Dosya adlarında kullanılan isim")}">
+      <button id="renameBtn">${t("İsmi kaydet")}</button><button id="removeBtn" class="danger">${t("Kütüphaneden kaldır")}</button></div>
+    <div class="row" style="margin-top:10px">
+      <input type="text" id="dir" placeholder="${t("Bölümlerin olduğu klasör")}" style="flex:1;min-width:220px" value="${esc(localGet("dir_" + a.id) || "")}">
+      <button id="browseBtn">${t("Gözat…")}</button>
+      <select id="target"><option value="all">${t("Tüm sezonlar (otomatik)")}</option>
+        ${a.seasons.map(s => `<option value="${s.n}">${t("Sezon {n}", { n: s.n })}</option>`).join("")}</select>
+      <button class="pri" id="assignBtn">${t("Eşleştir")}</button></div>
+    <div id="assignMsg" class="msg" style="margin-top:6px"></div>
+  </div>
+  <div class="card row">
+    <label><input type="checkbox" id="selAll" ${allChecked ? "checked" : ""}> ${t("Tüm sezonlarda tümünü seç")}</label>
+    <span class="msg">${t("{n} seçili", { n: selCount })}</span><span class="grow"></span>
+    <button class="pri" data-act="play" title="${t("Seçilen bölümleri oynatıcıda aç (tek bölüm seçiliyse oradan devam eder)")}">${t("▶ Oynat")}</button>
+    <button data-act="analyze" title="${t("OP/ED'yi yeniden bul")}">${t("Analiz et")}</button>
+    <button data-act="rename" title="${t("Dosyaları ad şablonuna göre yeniden adlandırır (yerinde)")}">${t("Yeniden adlandır")}</button>
+    <button data-act="rename_undo" title="${t("Yeniden adlandırmayı geri alır")}">${t("Adları geri al")}</button>
+    <button data-act="export" title="${t("OP/ED silinmiş kopyaları çıktı klasörüne yazar")}">${t("Dışa aktar")}</button>
+    <button data-act="merge" ${mBusy ? "disabled" : ""} title="${t("OP/ED silinmiş tek video, her bölüm bir chapter")}">${t("Tek video yap")}</button>
+    <button data-act="unassign" class="danger" title="${t("Seçilen bölümlerin dosya eşleşmesini kaldırır")}">${t("Eşleşmeyi kaldır")}</button>
+  </div>`;
+  const rp = resumePoint(a.id);
+  if (rp) {
+    const pct = rp.dur ? Math.min(100, Math.round(rp.pos / rp.dur * 100)) : 0;
+    const text = rp.finished ? t("<b>{a}</b> bitti, sonraki bölüm dosyası yok.", { a: esc(rp.ep.name) })
+      : rp.after ? t("<b>{a}</b> bitti. Sıradaki: <b>{b}</b>", { a: esc(rp.after.name), b: esc(rp.ep.name) })
+      : t("<b>{a}</b> · {p} dakikada kaldın", { a: esc(rp.ep.name), p: fmt(rp.pos) + (rp.dur ? " / " + fmt(rp.dur) : "") });
+    html += `<div class="card resume"><span>${t("Kaldığın yer:")}</span><span>${text}</span>
+      ${!rp.finished && rp.dur ? `<span class="bar"><i style="width:${pct}%"></i></span>` : ""}<span class="grow"></span>
+      ${!rp.finished && rp.ep.src ? `<button class="pri" data-play="${esc(rp.ep.id)}" title="${t("Bu bölümden oynat; yarıda kaldıysa kaldığın saniyeden açılır")}">${t("▶ Devam et")}</button>` : ""}</div>`;
+  }
+  if (m && m.status) {
+    const pct = Math.round((m.progress || 0) * 100);
+    html += `<div class="card"><b>${t("Tek video:")}</b> <span>${esc(t(m.status))}</span>
+      ${mBusy ? pct + "%" : ""} <span class="msg">${esc(m.message || "")}</span>
+      ${m.file ? `<div class="fname">📁 ${esc(m.file)}</div>` : ""}
+      ${mBusy ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}</div>`;
+  }
+  for (const s of a.seasons) {
+    const se = eps.filter(e => e.season === s.n).sort((x, y) => x.episode - y.episode);
+    const sf = se.filter(e => e.src);
+    const sAll = sf.length && sf.every(e => sel.has(e.id));
+    html += `<div class="season"><div class="head">
+      <input type="checkbox" data-season="${s.n}" ${sAll ? "checked" : ""} ${sf.length ? "" : "disabled"}>
+      <b>${t("Sezon {n}", { n: s.n })}</b><span class="msg">${esc(s.title || "")}${s.year ? " · " + s.year : ""}</span>
+      <span class="grow"></span><span class="msg">${t("{a}/{b} dosya", { a: sf.length, b: se.length })} · ${t("tümünü seç")}</span></div>`;
+    if (!se.length) { html += `<div class="msg" style="padding:10px 14px">${t("Bölüm yok. Klasör eşleştirince dosyalar buraya gelir.")}</div></div>`; continue; }
+    html += "<table>";
+    for (const e of se) {
+      const busy = BUSY.includes(e.status);
+      const pct = Math.round((e.progress || 0) * 100);
+      const fn = e.src ? e.src.split(/[\\/]/).pop() : "";
+      html += `<tr class="${e.src ? "" : "nofile"} ${rp && rp.ep.id === e.id ? "last" : ""}">
+        <td class="c"><input type="checkbox" data-id="${esc(e.id)}" ${sel.has(e.id) ? "checked" : ""} ${e.src ? "" : "disabled"}></td>
+        <td class="p">${e.src ? `<button class="play" data-play="${esc(e.id)}" title="${t("Buradan oynat")}">▶</button>` : ""}</td>
+        <td><b>${esc(e.name)}</b>
+          ${fn ? `<div class="fname" title="${esc(e.src)}">${esc(fn)} ${e.sub_src ? `<span class="tag">${t("altyazı")}</span>` : ""}</div>` : ""}
+          ${watchLine(e.watch)}
+          ${e.message ? `<div class="msg">${esc(e.message)}</div>` : ""}
+          ${e.out_file ? `<div class="fname" title="${esc(e.out_file)}">📁 ${esc(e.out_file.split(/[\\/]/).pop())}</div>` : ""}</td>
+        <td class="tm">OP <input data-edit="op" data-id="${esc(e.id)}" value="${rng(e.skip?.op)}" placeholder="—" title="${esc(e.skip?.op ? t(e.skip.op.src) : "")}"></td>
+        <td class="tm">ED <input data-edit="ed" data-id="${esc(e.id)}" value="${rng(e.skip?.ed)}" placeholder="—" title="${esc(e.skip?.ed ? t(e.skip.ed.src) : "")}"></td>
+        <td class="st"><span class="s-${esc(e.status.split(" ")[0])}">${esc(t(e.status))}${busy && e.status === "işleniyor" ? " " + pct + "%" : ""}</span>
+          ${e.status === "işleniyor" ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}</td></tr>`;
+    }
+    html += "</table></div>";
+  }
+  $("animeView").innerHTML = html;
+}
+
+function render() {
+  applyStatic();
+  renderLib();
+  if (view === "anime") renderAnime();
+  $("mpvWarn").classList.toggle("hidden", state.mpv !== false);
+  const busy = state.eps.filter(e => BUSY.includes(e.status)).length
+    + Object.values(state.merges).filter(m => BUSY.includes(m.status)).length;
+  $("busy").textContent = busy ? t("{n} iş sürüyor", { n: busy }) : "";
+  $("cancelBtn").classList.toggle("hidden", !busy);
+}
+
+// İlk açılışta dil sistem diline göre seçilir ve kaydedilir (sunucu mesajları da o dilde olsun)
+function gotState(s) {
+  state = s; $("err").textContent = "";
+  if (!state.settings.lang && !langSent) { langSent = true; api("/api/settings", { lang: sysLang() }).catch(() => {}); }
+  render();
+}
+
+async function refresh() {
+  try { gotState(await api("/api/state")); }
+  catch (e) { $("err").textContent = t("Uygulamaya ulaşılamıyor."); }
+}
+
+async function createAnime() {
+  const name = $("newName").value.trim();
+  if (!name) return;
+  const r = await api("/api/manual", { name });
+  $("newName").value = "";
+  await refresh(); openAnime(r.id);
+}
+
+document.addEventListener("click", async ev => {
+  const el = ev.target.closest("[data-open],[data-add],[data-play],[data-act],button");
+  if (!el) return;
+  try {
+    if (el.dataset.open) openAnime(el.dataset.open);
+    else if (el.dataset.add) {
+      $("searchMsg").textContent = t("Sezonlar ve bölüm adları getiriliyor…");
+      const r = await api("/api/add", { anilist_id: +el.dataset.add });
+      $("searchMsg").textContent = ""; await refresh(); openAnime(r.id);
+    }
+    else if (el.dataset.play) await api("/api/action", { action: "play", anime: current, ids: [el.dataset.play] });
+    else if (el.dataset.act) {
+      const act = el.dataset.act;
+      let ids = animeEps(current).filter(e => e.src && sel.has(e.id)).map(e => e.id);
+      if (!ids.length && act === "play") ids = [];
+      else if (!ids.length) return alert(t("Önce bölüm seç."));
+      if (act === "rename" && !confirm(t("{n} dosya yerinde yeniden adlandırılsın mı? (Adları geri al ile geri alınabilir)", { n: ids.length }))) return;
+      const r = await api("/api/action", { action: act, ids, anime: current });
+      if (r.errors && r.errors.length) alert(t("Adlandırılamayanlar:") + "\n" + r.errors.join("\n"));
+      if (act === "unassign") sel.clear();
+    }
+    else if (el.id === "addBtn") { show("add"); $("newName").focus(); }
+    else if (el.id === "createBtn") await createAnime();
+    else if (el.id === "toggleSearch") { $("searchBox").classList.toggle("hidden"); $("q").value = $("newName").value; $("q").focus(); }
+    else if (el.id === "setBtn") toggleSettings();
+    else if (el.id === "saveSet") saveSettings();
+    else if (el.id === "searchBtn") search();
+    else if (el.id === "cancelBtn") await api("/api/action", { action: "cancel" });
+    else if (el.id === "renameBtn") { await api("/api/anime", { id: current, name: $("aname").value }); typing = false; }
+    else if (el.id === "removeBtn") {
+      if (confirm(t("Anime kütüphaneden kaldırılsın mı? Dosyalara dokunulmaz."))) {
+        await api("/api/anime", { id: current, remove: true }); current = null; show("welcome");
+      }
+    }
+    else if (el.id === "browseBtn") {
+      $("assignMsg").textContent = t("Klasör seçme penceresi açıldı (görev çubuğunda olabilir)…");
+      const r = await api("/api/pickdir", {});
+      $("assignMsg").textContent = "";
+      if (r.path) { $("dir").value = r.path; localSet("dir_" + current, r.path); }
+    }
+    else if (el.id === "assignBtn") {
+      const path = $("dir").value.trim();
+      if (!path) return alert(t("Önce klasör seç."));
+      localSet("dir_" + current, path);
+      const r = await api("/api/assign", { anime: current, path, season: $("target").value });
+      typing = false; await refresh();
+      $("assignMsg").innerHTML = `<span class="ok">${t("{n} dosya eşleşti, OP/ED analizi başladı.", { n: r.matched })}</span>` +
+        (r.unmatched.length ? ` <span class="err">${t("Eşleşmeyen:")} ${esc(r.unmatched.join(", "))}</span>` : "");
+      return;
+    }
+  } catch (e) { alert(e.message); }
+  refresh();
+});
+
+document.addEventListener("change", async ev => {
+  const el = ev.target;
+  if (el.dataset.id && el.type === "checkbox") { el.checked ? sel.add(el.dataset.id) : sel.delete(el.dataset.id); }
+  else if (el.dataset.season) {
+    for (const e of animeEps(current)) if (e.season === +el.dataset.season && e.src) el.checked ? sel.add(e.id) : sel.delete(e.id);
+  } else if (el.id === "selAll") {
+    for (const e of animeEps(current)) if (e.src) el.checked ? sel.add(e.id) : sel.delete(e.id);
+  } else if (el.dataset.edit) {
+    try { await api("/api/edit", { id: el.dataset.id, [el.dataset.edit]: el.value }); }
+    catch (e) { alert(e.message); }
+    typing = false; refresh(); return;
+  } else return;
+  render();
+});
+
+document.addEventListener("focusin", ev => { if (ev.target.matches("#animeView input[type=text], #animeView input[data-edit]")) typing = true; });
+document.addEventListener("focusout", ev => { if (ev.target.matches("#animeView input")) setTimeout(() => { typing = false; if (!document.activeElement?.matches("#animeView input")) render(); }, 250); });
+$("newName").addEventListener("keydown", ev => { if (ev.key === "Enter") createAnime().catch(e => alert(e.message)); });
+$("q").addEventListener("keydown", ev => { if (ev.key === "Enter") search(); });
+
+async function search() {
+  const q = $("q").value.trim();
+  if (q.length < 2) return;
+  $("searchMsg").textContent = t("Aranıyor…"); $("results").innerHTML = "";
+  try {
+    const r = await api("/api/search?q=" + encodeURIComponent(q));
+    $("searchMsg").textContent = r.results.length ? t("Seçmek için tıkla.") : t("Sonuç yok.");
+    $("results").innerHTML = r.results.map(x => `<div class="res" data-add="${x.id}">
+      ${x.image ? `<img src="${esc(x.image)}" alt="">` : ""}
+      <div><b>${esc(x.title)}</b>${x.romaji && x.romaji !== x.title ? `<div class="msg">${esc(x.romaji)}</div>` : ""}
+      <div class="msg">${esc(x.format || "")} · ${t("{n} bölüm", { n: x.episodes ?? "?" })} · ${x.year ?? ""}</div></div></div>`).join("");
+  } catch (e) { $("searchMsg").textContent = e.message; }
+}
+
+const SET = ["lang", "name_template", "auto_skip", "skip_preview", "mpv_path", "out_dir", "remove_oped", "cut_mode",
+             "encoder", "quality", "container", "merge_delete_eps"];
+function toggleSettings() {
+  $("settingsView").classList.toggle("hidden");
+  for (const k of SET) { const i = $(k); i.type === "checkbox" ? (i.checked = !!state.settings[k]) : (i.value = state.settings[k] ?? ""); }
+  $("lang").value = lang();
+}
+async function saveSettings() {
+  const body = {};
+  for (const k of SET) { const i = $(k); body[k] = i.type === "checkbox" ? i.checked : i.value; }
+  try { await api("/api/settings", body); state.settings.lang = body.lang; render(); $("setMsg").textContent = t("Kaydedildi"); }
+  catch (e) { $("setMsg").textContent = e.message; }
+  refresh();
+}
+
+refresh().then(() => show(current && state.animes[current] ? "anime" : "welcome"));
+// Sunucu durum değişince anında gönderir; bağlantı koparsa tarayıcı kendisi yeniden bağlanır
+const events = new EventSource("/api/events");
+events.onmessage = ev => gotState(JSON.parse(ev.data));
+events.onerror = () => { $("err").textContent = t("Uygulamaya ulaşılamıyor, yeniden bağlanılıyor…"); };
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+/target/
+/data/
+/dist/
+/player/mpv/
+/player/config/hiz.txt
+/player/config/watch_later/
+*.exe
+!/player/config/scripts/uosc/bin/*.exe
