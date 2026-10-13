@@ -22,4 +22,8 @@ The license text is in `player/mpv/LICENSE.txt`.
 
 ## FFmpeg
 
-FFmpeg is not bundled. Tobasu runs the `ffmpeg` and `ffprobe` found on your PATH.
+`ffmpeg/` is FFmpeg `n9.0.2-27-g7e93014c5b`, the shared GPL build from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds), under GPL-3.0-or-later. The license text is in `ffmpeg/LICENSE.txt`.
+
+Source code:
+- FFmpeg: https://github.com/FFmpeg/FFmpeg/tree/7e93014c5b
+- build scripts and library versions: https://github.com/BtbN/FFmpeg-Builds

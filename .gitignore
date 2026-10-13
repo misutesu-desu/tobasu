@@ -6,3 +6,4 @@
 /player/config/watch_later/
 *.exe
 !/player/config/scripts/uosc/bin/*.exe
+/ffmpeg/

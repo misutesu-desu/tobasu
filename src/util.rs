@@ -62,6 +62,7 @@ pub struct Paths {
     pub data: PathBuf,
     pub player: PathBuf,
     pub player_conf: PathBuf,
+    pub ffmpeg: PathBuf, // pakete gömülü ffmpeg/ffprobe klasörü
 }
 
 static PATHS: OnceLock<Paths> = OnceLock::new();
@@ -86,7 +87,7 @@ pub fn paths() -> &'static Paths {
             root.join("data")
         };
         let _ = std::fs::create_dir_all(&data);
-        Paths { player, player_conf, data }
+        Paths { player, player_conf, ffmpeg: root.join("ffmpeg"), data }
     })
 }
 
@@ -100,9 +101,10 @@ pub fn log(msg: &str) {
 pub const NO_WINDOW: u32 = 0x0800_0000;
 pub const DETACHED: u32 = 0x0000_0008;
 
-/// Konsol penceresi açmayan komut.
+/// Konsol penceresi açmayan komut. ffmpeg/ffprobe önce exe'nin yanındaki ffmpeg klasöründe aranır.
 pub fn cmd(prog: &str) -> Command {
-    let mut c = Command::new(prog);
+    let bundled = paths().ffmpeg.join(format!("{prog}.exe"));
+    let mut c = if matches!(prog, "ffmpeg" | "ffprobe") && bundled.is_file() { Command::new(bundled) } else { Command::new(prog) };
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
